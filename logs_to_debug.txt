@@ -1,0 +1,86 @@
+'''
+XVG and CS
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+
+/usr/lib/python3.7/site-packages/pyti/stochrsi.py:16: RuntimeWarning:
+
+invalid value encountered in double_scalars
+'''
