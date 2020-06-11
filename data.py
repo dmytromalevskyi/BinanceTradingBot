@@ -5,13 +5,16 @@ import json
 from datetime import datetime, timedelta
 from pandas import DataFrame as df
 import re
-import binance_keys
+import binance_keys # Python file with the api keys, e.g - Pkey = 'your p key' ,[nexy line] Skey = 'your s key'
 import plotly.offline as py
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import time
 import multiprocessing
 import concurrent.futures
+'''fixing bag'''
+import numpy as np
+np.seterr(all="ignore")
 '''For multiprosesing'''
 from functools import partial
 from contextlib import contextmanager
@@ -22,7 +25,8 @@ from pyti.bollinger_bands import *
     middle_bollinger_band
     lower_bollinger_band
     percent_bandwidth'''
-from pyti.stochrsi import stochrsi as srsi 
+from pyti.stochrsi import stochrsi as srsi
+from pyti.moving_average_convergence_divergence import moving_average_convergence_divergence as macd
 
 
 
@@ -41,7 +45,8 @@ Further Ideas
 
 client = None
 commition = 0.001
-
+target_coin_list = ['ETH','XRP','BCH','LTC','BNB','EOS','ADA','XTZ','XLM','LINK',
+                    'XMR','TRX','ETC','NEO','DASH','IOTA','ALGO','ATOM','VET','XEM'] # market cap > $400M
 @contextmanager
 def poolcontext(*args, **kwargs):
     pool = multiprocessing.Pool(*args, **kwargs)
@@ -151,8 +156,8 @@ class Binance_Bot():
         for pair in pair_list:
             if 'BTC' in pair:
                 coin_list.append(pair.replace('BTC',''))              
-        perge_list=['USDT', 'UPUSDT', 'DOWNUSDT', 'USDC', 'RUB', 'EUR', 'BUSD', 'NGN', 'TRY', 'ZAR', 'BKRW', 'IDRT']
-        coin_list = [x for x in coin_list if x not in perge_list]
+        
+        coin_list = [x for x in coin_list if x in target_coin_list]
         return coin_list
 
     @staticmethod
@@ -165,7 +170,10 @@ class Binance_Bot():
                 print()
                 print(coin)
                 data_frame = Binance_Bot.binance_coin_price(coin, interval)
-                
+                '''num_trades = sum(data_frame['trade_number'].tolist()) / data_frame['trade_number'].__len__()
+                if num_trades < min_num_trades:
+                    print(f'Skipping as trade number is only {num_trades}')
+                    continue'''
                 buy_signals, sell_signals = func(data_frame, indicator_intr_lst, critical_val_lst)
                 
                 stats = Strategy.gen_stats(buy_signals, sell_signals, btc_to_spend)
@@ -181,7 +189,7 @@ class Binance_Bot():
         print('Could not locate historical data for the following coins:', broken_coins)   
 
     @staticmethod
-    def analyse_json(json_file, func = None, interval = '15m', btc_to_spend = 1, minimum_len = 100, limit = 0, save_stats = False, indicator_intr_lst = [], critical_val_lst = []):
+    def analyse_json(json_file, func = None, interval = '15m', btc_to_spend = 1, minimum_len = 100, limit = 0, save_stats = False, target_coin_list = False, indicator_intr_lst = [], critical_val_lst = []):
         func_name = func.__name__
 
         #some data_bases might be very short
@@ -189,6 +197,12 @@ class Binance_Bot():
         
         start_time = time.time() #to time how long it took to process
         execution_start = datetime.now() # to display when the processing started
+        
+        if target_coin_list:
+            coin = json_file.split('_')[1]
+            if coin not in target_coin_list: #only analyse target coins
+                return
+
         data_frame = Binance_Bot.json_to_data_frame('historical_data/' + interval + '/' + json_file)
 
         if type(data_frame) != type(df([[]])):
@@ -210,7 +224,7 @@ class Binance_Bot():
                 f'Skipping as the length of the data < {limit}',
                 sep = '\n')
             return
-                
+        
         buy_signals, sell_signals = func(data_frame[limit_used:-1], indicator_intr_lst, critical_val_lst)
         stats = Strategy.gen_stats(buy_signals, sell_signals, btc_to_spend)
         time_taken = round(time.time() - start_time, 1)
@@ -243,7 +257,7 @@ class Binance_Bot():
                 f.write(json.dumps({'Stats': Strategy.stats, 'Settings': Strategy.setting}, indent=3))
 
     @staticmethod
-    def backtest_local(func = None, interval = '15m', btc_to_spend = 1, minimum_len = 100, limit = 0, save_stats = False, multi_processing = True, indicator_intr_lst = [], critical_val_lst = []):
+    def backtest_local(func = None, interval = '15m', btc_to_spend = 1, minimum_len = 100, limit = 0, save_stats = False, multi_processing = True, target_coin_list = False, indicator_intr_lst = [], critical_val_lst = []):
         # Backtest of data that is stored lockaly in historical_data and save the results
         func_name = func.__name__
         if os.path.isdir("strategies/" + func_name) != True: os.makedirs("strategies/" + func_name)
@@ -254,7 +268,7 @@ class Binance_Bot():
         if multi_processing:
             with poolcontext(processes=4) as pool:
                 result_stats = pool.map(partial(Binance_Bot.analyse_json, func = func, interval = interval, btc_to_spend = btc_to_spend, minimum_len = minimum_len, 
-                    limit = limit, save_stats = save_stats, indicator_intr_lst = indicator_intr_lst, critical_val_lst = critical_val_lst), json_list)
+                    limit = limit, save_stats = save_stats, indicator_intr_lst = indicator_intr_lst, critical_val_lst = critical_val_lst, target_coin_list = target_coin_list), json_list)
         else:
             result_stats = []
             for json_file in json_list:
@@ -262,16 +276,20 @@ class Binance_Bot():
                     limit = limit, save_stats = save_stats, indicator_intr_lst = indicator_intr_lst, critical_val_lst = critical_val_lst)
                 result_stats.append(stat)
         
-        average_stats = {'%/1w Profit' : [], 'Success Chance' : []}
+        prs_per_1w_lst = []
+        ave_suc_chan_lst = []
+
         for stat in result_stats:
             if type(stat) == type({}):
-                if stat['%/1w Profit'] != 0 : average_stats['%/1w Profit'].append(stat['%/1w Profit'])
-                if stat['Success Chance'] != 0 : average_stats['Success Chance'].append(stat['Success Chance'])
-        ave_prs_per_1w = sum(average_stats['%/1w Profit']) / len(average_stats['%/1w Profit'])
-        ave_suc_chan = sum(average_stats['Success Chance']) / len(average_stats['Success Chance'])
+                if stat['%/1w Profit'] != 0 : prs_per_1w_lst.append(stat['%/1w Profit'])
+                if stat['Success Chance'] != 0 : ave_suc_chan_lst.append(stat['Success Chance'])
+        ave_prs_per_1w = sum(prs_per_1w_lst) / len(prs_per_1w_lst)
+        ave_suc_chan = sum(ave_suc_chan_lst) / len(ave_suc_chan_lst)
         print()
         print(f'Average %/1w Profit: {ave_prs_per_1w*100}, ')
         print(f'Average Success Chance: {ave_suc_chan*100}, ')
+
+        return prs_per_1w_lst, ave_suc_chan_lst
 
 class Indicator():
     stand_alone = []
@@ -283,6 +301,14 @@ class Indicator():
         else:
             Indicator.stand_alone.append('srsi '+ str(period))
             data_frame['srsi '+ str(period)] = srsi(df_or_lst['close'].tolist(), period)
+    
+    @staticmethod
+    def add_macd(df_or_lst, short_period, long_period):
+        if isinstance(df_or_lst, list) == True:
+            return macd(df_or_lst, short_period, long_period)
+        else:
+            Indicator.stand_alone.append('macd '+ str(short_period) + str(long_period))
+            data_frame['macd '+ str(short_period) + str(long_period)] = macd(df_or_lst['close'].tolist(), short_period, long_period)
     
     @staticmethod
     def add_sma(df_or_lst, period):
@@ -421,7 +447,30 @@ class Visualise():
                     ), row = i+2, col = 1
                 )
         
-        py.plot(fig, filename="data_visualised.html")
+        py.plot(fig, filename="draw_candles.html")
+
+    @staticmethod
+    def box_plot(prs_per_1w_lst=[], ave_suc_chan_lst=[]):
+        fig = make_subplots(rows=1, cols=2)
+        fig.update_layout(title_text='Box plot of: %/1w Profit, Success Chance')
+        # make it in persent
+        prs_per_1w_lst = [item * 100 for item in prs_per_1w_lst]
+        ave_suc_chan_lst = [item * 100 for item in ave_suc_chan_lst]
+
+
+        trace0 = go.Box(
+            y = prs_per_1w_lst,
+            name = '%/1w Profit',
+        )
+        fig.add_trace(trace0, row=1,col=1)
+
+        trace1 = go.Box(
+            y = ave_suc_chan_lst,
+            name = 'Success Chance'
+        )
+        fig.add_trace(trace1, row=1,col=2)
+        
+        py.plot(fig, filename="box_plot.html")
 
 class Strategy:
     '''Statistics of a list to be able to compare it
@@ -488,25 +537,29 @@ class Strategy:
         print(stats)
 
     @staticmethod
-    def srsi_and_boll(data_frame, indicator_intr_lst = [], critical_val_lst = []):
-        # indicator_intr_lst = [ srsi_interval ,  boll_interval ]
-        # critical_val_lst   = [ buy_val_srsi ]
-        # 14,30,35  15m=   2.092%/1w, 85.14%
-        # 14,30,25  15m=   2.53%/1w,  81,85%    limit=700
-        # 14,25,25  15m=   1.85%/1w,  77,63%    limit=700
- 
+    def srsi_and_boll(data_frame, indicator_intr_lst = [], critical_val_lst = [None,]):
+        # indicator_intr_lst = [ srsi_interval ,  boll_interval ] eg 14,30
+        # critical_val_lst   = [ stop_loss     ,  buy_val_srsi ]  eg -0.0095, 35
+        #           
+        # 14,30,None,35  15m=   2.092%/1w, 85.14%
+        # 14,30,None,25  15m=   2.53%/1w,  81,85%    limit=700
+        # 14,25,None,25  15m=   1.85%/1w,  77,63%    limit=700
+        # 14,35,None,25  15m=   2.72%/1w   80.85%    limit=700
+        # 14,35,None,35  15m=   2.49%/1w   83.10%    limit=700
 
-        if len(indicator_intr_lst) != 2 or len(critical_val_lst) != 1:
-            print('srsi_and_boll needs 2 intervals and 1 critical value')
-            raise ValueError('srsi_and_boll needs 2 intervals and 1 critical value')
+
+        if len(indicator_intr_lst) != 2 or len(critical_val_lst) != 2:
+            print('srsi_and_boll needs 2 intervals and 2 critical value')
+            raise ValueError('srsi_and_boll needs 2 intervals and 2 critical value')
         srsi_interval = indicator_intr_lst[0]
         boll_interval = indicator_intr_lst[1]
-        buy_val_srsi = critical_val_lst[0]
+        stop_loss = critical_val_lst[0]
+        buy_val_srsi = critical_val_lst[1]
 
         # set the settings
         Strategy.setting['Srsi Interval'] = srsi_interval
         Strategy.setting['Boll Interval'] = boll_interval
-        Strategy.setting['Logic'] = f'Buy if srsi_{srsi_interval} = {buy_val_srsi} and price < boll_lw_{boll_interval}. Sell if price = boll_md_{boll_interval}'
+        Strategy.setting['Logic'] = f'Buy if srsi_{srsi_interval} <= {buy_val_srsi} and price < boll_lw_{boll_interval}. Sell if price = boll_md_{boll_interval}'
         Strategy.setting['Interval'] = data_frame.index[1] - data_frame.index[0]
 
         # start the execution 
@@ -520,29 +573,115 @@ class Strategy:
         buy_signals = []
         sell_signals = []
         for i in range(first_candle, len(lst_lows)):
-            if Indicator.add_srsi(lst_lows[:i], srsi_interval)[-1] < buy_val_srsi < Indicator.add_srsi(lst_highs[:i], srsi_interval)[-1] and lst_lows[i] < Indicator.add_boll_lw(lst_lows[:i], boll_interval)[-1] < lst_highs[i] and isBought == False:
-                buy_signals.append([lst_time[i], Indicator.add_boll_lw(lst_lows[:i], boll_interval)[-1]])
-                isBought = True
-            elif lst_lows[i] < Indicator.add_boll_md(lst_lows[:i], boll_interval)[-1] < lst_highs[i] and isBought == True:
-                sell_signals.append([lst_time[i],Indicator.add_boll_md(lst_lows[:i], boll_interval)[-1]])
-                isBought = False
+            # recalculate everything upto i
+            current_time = lst_time[i]
+
+            if isBought == False: #have not bought anything yet
+                # recalculate everything upto i
+                current_srsi = Indicator.add_srsi(lst_lows[:i], srsi_interval)[-1]
+                current_boll_lw = Indicator.add_boll_lw(lst_lows[:i], boll_interval)[-1]
+
+                if current_srsi <= buy_val_srsi and lst_lows[i] < current_boll_lw < lst_highs[i]:
+                    buy_signals.append([current_time, current_boll_lw])
+                    isBought = True
+
+            elif isBought == True: #need to sell now
+                # recalculate upto i
+                current_boll_md = Indicator.add_boll_md(lst_lows[:i], boll_interval)[-1]
+                
+                if lst_lows[i] < current_boll_md < lst_highs[i]:
+                    sell_signals.append([current_time,current_boll_md])
+                    isBought = False
+
+                # stop loss
+                elif stop_loss != None:
+                    persent_gain = (lst_lows[i]-buy_signals[-1][1])/buy_signals[-1][1] #
+                    if persent_gain < stop_loss:
+                        sell_signals.append([current_time,lst_lows[i]])
+                        isBought = False              
         return buy_signals, sell_signals
-    
+
+    @staticmethod
+    def macd_sma(data_frame, indicator_intr_lst = [], critical_val_lst = []):
+        # indicator_intr_lst = [ macd_short_interval ,  macd_long_interval , sma_interval]
+        # critical_val_lst   = [ stop_loss , buy_val_macd , prof_target ]  eg -0.0095, -0.000015, 0.0001
+        #           
+        # 00,00,None,00  15m=   2.092%/1w, 85.14%
+
+        if len(indicator_intr_lst) != 3 or len(critical_val_lst) != 3:
+            print('macd_sma needs 3 intervals and 3 critical value')
+            raise ValueError('macd_sma needs 3 intervals and 3 critical value')
+        macd_s_interval = indicator_intr_lst[0]
+        macd_l_interval = indicator_intr_lst[1]
+        sma_interval = indicator_intr_lst[2]
+        stop_loss = critical_val_lst[0]
+        buy_val_macd = critical_val_lst[1]
+        prof_target = critical_val_lst[2]
+
+        # set the settings 
+        ''' NOT SET YET
+        Strategy.setting['MACD Short Interval'] = srsi_interval
+        Strategy.setting['Boll Interval'] = boll_interval
+        Strategy.setting['Logic'] = f'Buy if srsi_{srsi_interval} <= {buy_val_srsi} and price < boll_lw_{boll_interval}. Sell if price = boll_md_{boll_interval}'
+        Strategy.setting['Interval'] = data_frame.index[1] - data_frame.index[0]
+        '''
+        # start the execution 
+        lst_lows = data_frame['low'].tolist()
+        lst_highs = data_frame['high'].tolist()
+        lst_time = data_frame.index[:].tolist()
+        isBought = False
+        first_candle = max(macd_s_interval ,  macd_l_interval , sma_interval)
+        Strategy.setting['First Candle'] = first_candle
+
+        buy_signals = []
+        sell_signals = []
+        for i in range(first_candle, len(lst_lows)):
+            # recalculate everything upto i
+            current_time = lst_time[i]
+
+            if isBought == False: #have not bought anything yet
+                # recalculate everything upto i
+                current_sma = Indicator.add_sma(lst_lows[:i], sma_interval)[-1]
+                current_macd = Indicator.add_macd(lst_lows[:i], macd_s_interval,  macd_l_interval)[-1]
+
+                if current_macd <= buy_val_macd and current_sma <= lst_lows[i]:
+                    buy_signals.append([current_time, lst_lows[i]])
+                    isBought = True
+
+            elif isBought == True: #need to sell now
+                # recalculate upto i
+                price_target = buy_signals[-1][1] * (1+prof_target)
+                
+                if lst_lows[i] < price_target < lst_highs[i]:
+                    sell_signals.append([current_time,price_target])
+                    isBought = False
+
+                # stop loss
+                elif stop_loss != None:
+                    persent_gain = (lst_lows[i]-buy_signals[-1][1])/buy_signals[-1][1] #
+                    if persent_gain < stop_loss:
+                        sell_signals.append([current_time,lst_lows[i]])
+                        isBought = False
+        return buy_signals, sell_signals
+        
 # MAIN CODE STARTS HERE
 # MUltiprosessing backtest
 
-
-
-
-Binance_Bot.backtest_local(func = Strategy.srsi_and_boll, limit = 700, indicator_intr_lst = [14,25], critical_val_lst = [25])
-
-
 #Binance_Bot.connect()
-#data_frame = Binance_Bot.binance_coin_price('ETH', '15m')
-#Indicator.add_boll(data_frame,30,30,30)
-#Indicator.add_srsi(data_frame, 14)
-#Visualise.draw_candles(data_frame)
+#Binance_Bot.backtest_resent(Strategy.srsi_and_boll, indicator_intr_lst=[14,35], critical_val_lst= [25], interval='15m')
 
+
+
+lst1, lst2  =  Binance_Bot.backtest_local(interval='15m' ,func = Strategy.macd_sma, limit = 800, indicator_intr_lst = [12,26,150], critical_val_lst = [-0.0095, -0.000005, 0.0001])
+Visualise.box_plot( prs_per_1w_lst = lst1, ave_suc_chan_lst = lst2)
+'''
+Binance_Bot.connect()
+data_frame = Binance_Bot.binance_coin_price('ETH', '15m')
+Indicator.add_macd(data_frame, 12, 26)
+Indicator.add_sma(data_frame, 200)
+buy_slt, sell_lst = Strategy.macd_sma(data_frame, indicator_intr_lst=[12,26,200], critical_val_lst=[-0.0095, -0.000015, 0.0001])
+Visualise.draw_candles(data_frame)
+'''
 #Binance_Bot.backtest_resent(Strategy.srsi_and_boll, indicator_intr_lst=[14,30], critical_val_lst= [35])
 
 #data_frame = Binance_Bot.json_to_data_frame('historical_data/3d/Binance_ARK_3d_1501545600000-1590969600000.json')
