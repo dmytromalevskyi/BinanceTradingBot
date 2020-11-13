@@ -1,6 +1,6 @@
 This repository was created for personal use only and is not being maintained,
 this is why it does not contain a user guide.
-It is also not written is a 'cohirent' way as it was one of my very first projects.
+It is also not written in a 'coherent' way as it was one of my very first projects.
 
 # BinanceTradingBot
 Create strategies, backtest (based on the data tha can be downloaded using the script) them and visualise this with use of plotly.
