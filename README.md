@@ -21,7 +21,7 @@ This repository was created for personal use only and is not being maintained, t
 > Unfortunately since this repository is very outdated I can only present limited amount of examples that I could find on my hard drive
 > - check the `Examples of Visualisation` folder for the actual graphs creaded with plotly
 > - see `historical_data` folder for the format of fetched data
-> ![Data_Visualised_1](/PicturesForREADME/.png?raw=true "Data Visualised 1")
-> ![Data_Visualised_2](/PicturesForREADME/.png?raw=true "Data Visualised 2")
-> ![Box_Plot_1](/PicturesForREADME/.png?raw=true "Box Plot 1")
-> ![Box_Plot_2](/PicturesForREADME/.png?raw=true "Box Plot 2")
+> ![Data_Visualised_1](/PicturesForREADME/data_visualised_1.png?raw=true "Data Visualised 1")
+> ![Data_Visualised_2](/PicturesForREADME/data_visualised_2.png?raw=true "Data Visualised 2")
+> ![Box_Plot_1](/PicturesForREADME/box_plot_1.png?raw=true "Box Plot 1")
+> ![Box_Plot_2](/PicturesForREADME/box_plot_2.png?raw=true "Box Plot 2")
