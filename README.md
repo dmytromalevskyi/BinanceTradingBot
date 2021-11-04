@@ -21,7 +21,11 @@ This repository was created for personal use only and is not being maintained, t
 > Unfortunately since this repository is very outdated I can only present limited amount of examples that I could find on my hard drive
 > - check the `Examples of Visualisation` folder for the actual graphs creaded with plotly
 > - see `historical_data` folder for the format of fetched data
+> 1. Bollinger bands (30 candles) & SRSI (14 candles)
 > ![Data_Visualised_1](/PicturesForREADME/data_visualised_1.png?raw=true "Data Visualised 1")
+> 2. SMA (200 candles) & MACD (fast length 12 candles, slow lenght 26 candles)
 > ![Data_Visualised_2](/PicturesForREADME/data_visualised_2.png?raw=true "Data Visualised 2")
+> 3. %/1w Profit and Success Chance of some strategy 1
 > ![Box_Plot_1](/PicturesForREADME/box_plot_1.png?raw=true "Box Plot 1")
+> 4. %/1w Profit and Success Chance of some strategy 2
 > ![Box_Plot_2](/PicturesForREADME/box_plot_2.png?raw=true "Box Plot 2")
